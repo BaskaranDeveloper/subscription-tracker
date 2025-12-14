@@ -1,90 +1,71 @@
-// models/Subscription.js
-import mongoose from "mongoose";
+import mongoose from 'mongoose';
 
 const subscriptionSchema = new mongoose.Schema({
     name: {
         type: String,
-        required: [true, "Subscription name is required"],
+        required: [true, 'Subscription name is required'],
         trim: true,
-        minlength: 3,
-        maxlength: 50,
+        minLength: 2,
+        maxLength: 100,
     },
-
     price: {
         type: Number,
-        required: [true, "Subscription price is required"],
-        min: [0, "Price must be greater than 0"],
+        required: [true, 'Subscription price is required'],
+        min: [0, 'Price must be greater than 0']
     },
-
     currency: {
         type: String,
-        required: [true, "Subscription currency is required"],
-        enum: ["INR", "USD", "GBP"],
-        default: "INR",
+        enum: ['USD', 'EUR', 'GBP'],
+        default: 'USD'
     },
-
     frequency: {
         type: String,
-        enum: ["daily", "weekly", "monthly", "yearly"],
-        required: true,
-        default: "monthly",
+        enum: ['daily', 'weekly', 'monthly', 'yearly'],
     },
-
     category: {
         type: String,
-        enum: ["scientific", "political", "sports", "technologies", "others"],
+        enum: ['sports', 'news', 'entertainment', 'lifestyle', 'technology', 'finance', 'politics', 'other'],
+        required: true,
+    },
+    paymentMethod: {
+        type: String,
         required: true,
         trim: true,
     },
-
-    paymentMethod: {
-        type: String,
-        required: [true, "Payment method is required"],
-        trim: true,
-    },
-
     status: {
         type: String,
-        enum: ["active", "canceled", "expired"], // include 'expired' since hook may set it
-        default: "active",
+        enum: ['active', 'cancelled', 'expired'],
+        default: 'active'
     },
-
     startDate: {
         type: Date,
         required: true,
         validate: {
-            validator: function (value) {
-                // startDate must be past or present
-                return value <= new Date();
-            },
-            message: "Start date must be a valid past or present date",
-        },
+            validator: (value) => value <= new Date(),
+            message: 'Start date must be in the past',
+        }
     },
-
     renewalDate: {
         type: Date,
-        required: false, // make optional so pre('save') can auto-calc
         validate: {
             validator: function (value) {
-                // if renewalDate not provided or startDate not set, skip validation here
-                if (!value || !this.startDate) return true;
                 return value > this.startDate;
             },
-            message: "Renewal date must be after the start date",
-        },
+            message: 'Renewal date must be after the start date',
+        }
     },
-
     user: {
         type: mongoose.Schema.Types.ObjectId,
-        ref: "User",
+        ref: 'User',
         required: true,
         index: true,
-    },
+    }
 }, { timestamps: true });
 
-// Auto-calculate renewal date before saving if missing
-subscriptionSchema.pre("save", function (next) {
-    if (!this.renewalDate) {
+
+// Auto-calculate renewal date if missing.
+subscriptionSchema.pre('save', function (next) {
+    if(!this.renewalDate) {
         const renewalPeriods = {
             daily: 1,
             weekly: 7,
@@ -92,18 +73,18 @@ subscriptionSchema.pre("save", function (next) {
             yearly: 365,
         };
 
-        const days = renewalPeriods[this.frequency] ?? 30;
         this.renewalDate = new Date(this.startDate);
-        this.renewalDate.setDate(this.renewalDate.getDate() + days);
+        this.renewalDate.setDate(this.renewalDate.getDate() + renewalPeriods[this.frequency]);
     }
 
-    // Auto-update the status if renewal date has passed (don't override canceled)
-    if (this.status !== "canceled" && this.renewalDate < new Date()) {
-        this.status = "expired";
+    // Auto-update the status if renewal date has passed
+    if (this.renewalDate < new Date()) {
+        this.status = 'expired';
     }
 
-    next();
+    // next();
 });
 
-const Subscription = mongoose.model("Subscription", subscriptionSchema);
+const Subscription = mongoose.model('Subscription', subscriptionSchema);
+
 export default Subscription;
